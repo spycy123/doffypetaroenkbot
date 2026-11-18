@@ -293,5 +293,16 @@ docker run -d \
 
 ---
 
+## Kontributor
+
+Project ini dikembangkan dan dikelola oleh:
+
+- [spycy123](https://github.com/spycy123) - Project Creator & Maintainer
+- [Zulaikha-jpg](https://github.com/Zulaikha-jpg) - Contributor & Developer
+
+Terbuka untuk kontribusi, saran perbaikan, dan ide pengembangan fitur baru.
+
+---
+
 ## Lisensi
 ISC License - Bebas digunakan dan dikembangkan untuk keperluan belajar maupun non-komersial.
