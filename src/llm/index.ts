@@ -18,7 +18,16 @@ export function createLLMProvider(config: AppConfig): LLMProvider {
     if (!config.GEMINI_API_KEY || !config.GEMINI_MODEL) {
       throw new Error('GEMINI_API_KEY dan GEMINI_MODEL wajib diisi jika LLM_PROVIDER=gemini.');
     }
-    return new GeminiProvider(config.GEMINI_API_KEY, config.GEMINI_MODEL);
+    // Model otomatis dialihkan ke gemini-3.1-flash-lite jika model lama (2.0/2.5) sudah deprecated
+    let activeGeminiModel = config.GEMINI_MODEL;
+    if (
+      activeGeminiModel === 'gemini-2.5-flash' ||
+      activeGeminiModel === 'gemini-2.0-flash' ||
+      activeGeminiModel === 'gemini-1.5-flash'
+    ) {
+      activeGeminiModel = 'gemini-3.1-flash-lite';
+    }
+    return new GeminiProvider(config.GEMINI_API_KEY, activeGeminiModel);
   } else if (config.LLM_PROVIDER === 'openai') {
     if (!config.OPENAI_API_KEY || !config.OPENAI_MODEL) {
       throw new Error('OPENAI_API_KEY dan OPENAI_MODEL wajib diisi jika LLM_PROVIDER=openai.');
