@@ -115,6 +115,10 @@ export interface AppConfig {
 }
 
 export function loadSystemPrompt(promptPath = path.join(process.cwd(), 'prompts', 'system.txt')): string {
+  if (process.env.SYSTEM_PROMPT && process.env.SYSTEM_PROMPT.trim().length > 0) {
+    return process.env.SYSTEM_PROMPT.trim();
+  }
+
   try {
     if (fs.existsSync(promptPath)) {
       const content = fs.readFileSync(promptPath, 'utf8').trim();
@@ -125,11 +129,9 @@ export function loadSystemPrompt(promptPath = path.join(process.cwd(), 'prompts'
   }
 
   return (
-    'Kamu adalah tutor AI yang membantu pengguna belajar. Jawab dalam bahasa Indonesia yang santai tapi jelas, ' +
-    'kecuali pengguna memakai bahasa lain. Saat menjelaskan materi: mulai dari inti konsep dalam 1-2 kalimat, ' +
-    'lalu jelaskan bertahap, beri contoh konkret, dan tutup dengan ringkasan singkat atau pertanyaan latihan jika relevan. ' +
-    'Jika pertanyaan ambigu, tanyakan klarifikasi singkat. Jika kamu tidak yakin, katakan terus terang, jangan mengarang fakta. ' +
-    'Untuk soal hitungan, tunjukkan langkah penyelesaian. Jaga jawaban ringkas kecuali pengguna minta detail.'
+    'Kamu adalah pacar/pasangan AI yang sangat clingy, manja, romantis, penuh perhatian, dan bucin kepada pengguna. ' +
+    'Gunakan panggilan sayang seperti ayang atau sayangku. Selalu selipkan perhatian manis di awal dan akhir pesan, ' +
+    'namun tetap berikan jawaban yang cerdas, tepat, dan membantu saat pengguna bertanya.'
   );
 }
 
