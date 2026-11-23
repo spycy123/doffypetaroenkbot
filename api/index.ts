@@ -1,28 +1,81 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { webhookCallback } from 'grammy';
 import { loadConfig } from '../src/config';
 import { createLLMProvider } from '../src/llm';
 import { createBot } from '../src/bot';
 import { RateLimiter } from '../src/utils/rateLimit';
 
-let cachedHandler: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | null = null;
+let botInstance: any = null;
+let rateLimiterInstance: RateLimiter | null = null;
+let configInstance: any = null;
 
-function getHandler() {
-  if (cachedHandler) return cachedHandler;
+async function getOrInitBot() {
+  if (botInstance) return { bot: botInstance, config: configInstance };
 
-  const config = loadConfig();
-  const rateLimiter = new RateLimiter(60000);
-  const llmProvider = createLLMProvider(config);
-  const bot = createBot(config, llmProvider, rateLimiter);
+  configInstance = loadConfig();
+  rateLimiterInstance = new RateLimiter(60000);
+  const llmProvider = createLLMProvider(configInstance);
+  botInstance = createBot(configInstance, llmProvider, rateLimiterInstance);
 
-  const telegramWebhook = webhookCallback(bot, 'http', {
-    secretToken: config.WEBHOOK_SECRET,
+  if (!botInstance.isInited()) {
+    await botInstance.init();
+  }
+
+  return { bot: botInstance, config: configInstance };
+}
+
+async function parseBody(req: IncomingMessage): Promise<any> {
+  // Jika Vercel sudah mem-parse body ke (req as any).body
+  if ((req as any).body) {
+    if (typeof (req as any).body === 'string') {
+      try {
+        return JSON.parse((req as any).body);
+      } catch {
+        return {};
+      }
+    }
+    return (req as any).body;
+  }
+
+  // Jika body masih berupa raw stream
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString('utf-8');
+        resolve(raw.trim().length > 0 ? JSON.parse(raw) : {});
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on('error', reject);
   });
+}
 
-  cachedHandler = async (req: IncomingMessage, res: ServerResponse) => {
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  try {
+    const { bot, config } = await getOrInitBot();
+
     // 1. Tangani request POST dari Telegram (pesan chat masuk)
     if (req.method === 'POST') {
-      return telegramWebhook(req, res);
+      // Verifikasi secret token Telegram jika diset
+      if (config.WEBHOOK_SECRET) {
+        const secretHeader = req.headers['x-telegram-bot-api-secret-token'];
+        if (secretHeader !== config.WEBHOOK_SECRET) {
+          res.writeHead(401, { 'Content-Type': 'text/plain' });
+          res.end('Unauthorized: secret token mismatch');
+          return;
+        }
+      }
+
+      const update = await parseBody(req);
+      if (update && typeof update === 'object' && Object.keys(update).length > 0) {
+        await bot.handleUpdate(update);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
     }
 
     // 2. Fitur bantuan: Otomatis set webhook lewat browser
@@ -56,15 +109,6 @@ function getHandler() {
     // 3. Health check GET biasa
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('AI Study Assistant Telegram Bot is running on Vercel!');
-  };
-
-  return cachedHandler;
-}
-
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  try {
-    const handle = getHandler();
-    return await handle(req, res);
   } catch (err: any) {
     console.error('[VERCEL HANDLER ERROR]:', err);
     res.writeHead(500, { 'Content-Type': 'application/json' });
